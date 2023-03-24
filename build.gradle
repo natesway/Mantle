@@ -11,8 +11,10 @@ buildscript {
         mavenLocal()
         maven { url = 'https://maven.minecraftforge.net/' }
         maven { url = 'https://libraries.minecraft.net/' }
-        jcenter()
-        mavenCentral()
+//        mavenCentral()
+        maven { url 'https://maven.aliyun.com/repository/public/' }
+        maven { url 'https://maven.aliyun.com/repository/google/'}
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin/'}
         maven {
             name = "sonatype"
             url = "https://oss.sonatype.org/content/repositories/snapshots/"
@@ -23,6 +25,9 @@ buildscript {
         maven {
             name "Parchment"
             url "https://maven.parchmentmc.org"
+        }
+        maven {
+            url "ldtteam.jfrog.io/ui/native/parchmentmc-public"
         }
     }
     dependencies {
@@ -48,14 +53,28 @@ repositories {
         name 'ForgeFS'
         url 'https://maven.minecraftforge.net/'
     }
+
+    maven {
+        // for Yarn2MCP
+        name "yarn2mcp"
+        url "https://maven.tterrag.com/"
+    }
+    maven {
+        // location of the maven that hosts JEI files since January 2023
+        name = "Jared's maven"
+        url = "https://maven.blamejared.com/"
+    }
+    maven {
+        // location of a maven mirror for JEI files, as a fallback
+        name = "ModMaven"
+        url = "https://modmaven.dev"
+    }
     maven {
         name 'DVS1 Maven FS'
         url 'https://dvs1.progwml6.com/files/maven'
     }
     maven {
-        // for Yarn2MCP
-        name "yarn2mcp"
-        url "https://maven.tterrag.com/"
+        url "ldtteam.jfrog.io/ui/native/parchmentmc-public"
     }
 }
 
@@ -170,9 +189,9 @@ dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
     // compile against the JEI API but do not include it at runtime
-    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}:${jei_version}:api")
+    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}")
     // at runtime, use the full JEI jar
-    runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}:${jei_version}")
+    runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
 }
 
 def modsTomlSpec = copySpec{

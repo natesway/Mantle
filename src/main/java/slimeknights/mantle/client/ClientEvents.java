@@ -13,6 +13,7 @@ import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.level.GameType;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
@@ -20,6 +21,7 @@ import net.minecraftforge.client.gui.ForgeIngameGui;
 import net.minecraftforge.client.gui.IIngameOverlay;
 import net.minecraftforge.client.model.ModelLoaderRegistry;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
@@ -72,21 +74,21 @@ public class ClientEvents {
   }
 
   @SubscribeEvent
-  static void registerModelLoaders(ModelRegistryEvent event) {
+  static void registerModelLoaders(ModelEvent.RegisterGeometryLoaders event) {
     // standard models - useful in resource packs for any model
-    ModelLoaderRegistry.registerLoader(Mantle.getResource("connected"), ConnectedModel.Loader.INSTANCE);
-    ModelLoaderRegistry.registerLoader(Mantle.getResource("item_layer"), MantleItemLayerModel.LOADER);
-    ModelLoaderRegistry.registerLoader(Mantle.getResource("colored_block"), ColoredBlockModel.LOADER);
-    ModelLoaderRegistry.registerLoader(Mantle.getResource("fallback"), FallbackModelLoader.INSTANCE);
+    event.register(Mantle.getResource("connected"), ConnectedModel.Loader.INSTANCE);
+    event.register(Mantle.getResource("item_layer"), MantleItemLayerModel.LOADER);
+    event.register(Mantle.getResource("colored_block"), ColoredBlockModel.LOADER);
+    event.register(Mantle.getResource("fallback"), FallbackModelLoader.INSTANCE);
 
     // NBT dynamic models - require specific data defined in the block/item to use
-    ModelLoaderRegistry.registerLoader(Mantle.getResource("nbt_key"), NBTKeyModel.LOADER);
-    ModelLoaderRegistry.registerLoader(Mantle.getResource("retextured"), RetexturedModel.Loader.INSTANCE);
+    event.register(Mantle.getResource("nbt_key"), NBTKeyModel.LOADER);
+    event.register(Mantle.getResource("retextured"), RetexturedModel.Loader.INSTANCE);
 
     // data models - contain information for other parts in rendering rather than rendering directly
-    ModelLoaderRegistry.registerLoader(Mantle.getResource("fluid_texture"), FluidTextureModel.LOADER);
-    ModelLoaderRegistry.registerLoader(Mantle.getResource("inventory"), InventoryModel.Loader.INSTANCE);
-    ModelLoaderRegistry.registerLoader(Mantle.getResource("fluids"), FluidsModel.Loader.INSTANCE);
+    event.register(Mantle.getResource("fluid_texture"), FluidTextureModel.LOADER);
+    event.register(Mantle.getResource("inventory"), InventoryModel.Loader.INSTANCE);
+    event.register(Mantle.getResource("fluids"), FluidsModel.Loader.INSTANCE);
   }
 
   @SubscribeEvent

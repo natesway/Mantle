@@ -24,14 +24,13 @@ import net.minecraft.client.resources.model.SimpleBakedModel;
 import net.minecraft.client.resources.model.UnbakedModel;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.Mth;
 import net.minecraftforge.client.ForgeHooksClient;
-import net.minecraftforge.client.model.ForgeModelBakery;
-import net.minecraftforge.client.model.IModelConfiguration;
-import net.minecraftforge.client.model.IModelLoader;
-import net.minecraftforge.client.model.geometry.IModelGeometry;
+import net.minecraftforge.client.RenderTypeGroup;
+import net.minecraftforge.client.model.IModelBuilder;
+import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
+import net.minecraftforge.client.model.geometry.IUnbakedGeometry;
 import slimeknights.mantle.util.JsonHelper;
 import slimeknights.mantle.util.LogicHelper;
 
@@ -46,43 +45,40 @@ import static net.minecraft.client.renderer.block.model.BlockModel.FACE_BAKERY;
 import static slimeknights.mantle.client.model.util.SimpleBlockModel.BAKE_LOCATION;
 
 /**
- * Block model for setting color, luminosity, and per element uv lock. Similar to {@link MantleItemLayerModel} but for blocks
+ * Block model for setting color, luminosity, and per element uv lock. Similar to {@link MantleItemLayerModel} but
+ * for blocks
  */
 // TODO 1.19: extend SimpleBlockModel after cleaning up some functions in that class
 @RequiredArgsConstructor
-public class ColoredBlockModel implements IModelGeometry<ColoredBlockModel> {
-  public static final Loader LOADER = new Loader();
+public class ColoredBlockModel implements IUnbakedGeometry<ColoredBlockModel> {
 
-  /** Base model to display */
   @Getter
   private final SimpleBlockModel model;
-  /** Colors to use for each piece */
+  /**
+   * Colors to use for each piece
+   */
   @Getter
   private final List<ColorData> colorData;
 
-  /** Gets the elements in this model */
-  public List<BlockElement> getElements() {
-    return model.getElements();
-  }
 
-  @Override
-  public Collection<Material> getTextures(IModelConfiguration owner, Function<ResourceLocation,UnbakedModel> modelGetter, Set<Pair<String,String>> missingTextureErrors) {
-    return model.getTextures(owner, modelGetter, missingTextureErrors);
-  }
 
   /**
    * Bakes a single part of the model into the builder
-   * @param builder       Baked model builder
-   * @param owner         Model owner
-   * @param part          Part to bake
-   * @param color         Color tint, use -1 for no tint
-   * @param luminosity    Luminosity for fullbright, use 0 for normal lighting
-   * @param transform     Transform for the face
-   * @param spriteGetter  Sprite getter
-   * @param location      Model location
+   *
+   * @param builder      Baked model builder
+   * @param owner        Model owner
+   * @param part         Part to bake
+   * @param color        Color tint, use -1 for no tint
+   * @param luminosity   Luminosity for fullbright, use 0 for normal lighting
+   * @param transform    Transform for the face
+   * @param spriteGetter Sprite getter
+   * @param location     Model location
    */
-  public static void bakePart(SimpleBakedModel.Builder builder, IModelConfiguration owner, BlockElement part, int color, int luminosity, ModelState transform, Function<Material,TextureAtlasSprite> spriteGetter, ResourceLocation location) {
-    bakePart(builder, owner, part, color, luminosity, transform.getRotation(), transform.isUvLocked(), spriteGetter, location);
+  public static void bakePart(IModelBuilder builder, IGeometryBakingContext owner, BlockElement part,
+                              int color, int luminosity, ModelState transform,
+                              Function<Material, TextureAtlasSprite> spriteGetter, ResourceLocation location) {
+    bakePart(builder, owner, part, color, luminosity, transform.getRotation(), transform.isUvLocked(), spriteGetter,
+      location);
   }
 
   /**
@@ -97,7 +93,9 @@ public class ColoredBlockModel implements IModelGeometry<ColoredBlockModel> {
    * @param spriteGetter  Sprite getter
    * @param location      Model location
    */
-  public static void bakePart(SimpleBakedModel.Builder builder, IModelConfiguration owner, BlockElement part, int color, int luminosity, Transformation transform, boolean uvlock, Function<Material,TextureAtlasSprite> spriteGetter, ResourceLocation location) {
+  public static void bakePart(IModelBuilder builder, IGeometryBakingContext owner, BlockElement part, int color,
+                              int luminosity, Transformation transform, boolean uvlock, Function<Material,
+    TextureAtlasSprite> spriteGetter, ResourceLocation location) {
     for (Direction direction : part.faces.keySet()) {
       BlockElementFace face = part.faces.get(direction);
       // ensure the name is not prefixed (it always is)
@@ -106,10 +104,9 @@ public class ColoredBlockModel implements IModelGeometry<ColoredBlockModel> {
         texture = texture.substring(1);
       }
       // bake the face with the extra colors
-      TextureAtlasSprite sprite = spriteGetter.apply(owner.resolveTexture(texture));
+      TextureAtlasSprite sprite = spriteGetter.apply(owner.getMaterial(texture));
       BakedQuad quad = bakeFace(part, face, sprite, direction, transform, uvlock, color, luminosity, location);
       // apply cull face
-      //noinspection ConstantConditions  the annotation is a liar
       if (face.cullForDirection == null) {
         builder.addUnculledFace(quad);
       } else {
@@ -120,37 +117,49 @@ public class ColoredBlockModel implements IModelGeometry<ColoredBlockModel> {
 
   /**
    * Bakes a list of block part elements into a model
-   * @param owner         Model configuration
-   * @param elements      Model elements
-   * @param transform     Model transform
-   * @param overrides     Model overrides
-   * @param spriteGetter  Sprite getter instance
-   * @param location      Model bake location
-   * @return  Baked model
+   *
+   * @param context      Model configuration
+   * @param elements     Model elements
+   * @param transform    Model transform
+   * @param overrides    Model overrides
+   * @param spriteGetter Sprite getter instance
+   * @param location     Model bake location
+   * @return Baked model
    */
-  public static BakedModel bakeModel(IModelConfiguration owner, List<BlockElement> elements, List<ColorData> colorData, ModelState transform, ItemOverrides overrides, Function<Material,TextureAtlasSprite> spriteGetter, ResourceLocation location) {
+  public static BakedModel bakeModel(IGeometryBakingContext context, List<BlockElement> elements,
+                                     List<ColorData> colorData, ModelState transform, ItemOverrides overrides,
+                                     Function<Material, TextureAtlasSprite> spriteGetter, ResourceLocation location) {
     // iterate parts, adding to the builder
-    TextureAtlasSprite particle = spriteGetter.apply(owner.resolveTexture("particle"));
-    SimpleBakedModel.Builder builder = new SimpleBakedModel.Builder(owner, overrides).particle(particle);
+    TextureAtlasSprite particle = spriteGetter.apply(context.getMaterial("particle"));
+    var renderTypeHint = context.getRenderTypeHint();
+    var renderTypes = renderTypeHint != null ? context.getRenderType(renderTypeHint) : RenderTypeGroup.EMPTY;
+    IModelBuilder<?> builder = IModelBuilder.of(context.useAmbientOcclusion(), context.useBlockLight(),
+      context.isGui3d(), context.getTransforms(), overrides, particle, renderTypes);
     int size = elements.size();
     Transformation transformation = transform.getRotation();
     boolean uvlock = transform.isUvLocked();
     for (int i = 0; i < size; i++) {
       BlockElement part = elements.get(i);
       ColorData colors = LogicHelper.getOrDefault(colorData, i, ColorData.DEFAULT);
-      bakePart(builder, owner, part, colors.color, colors.luminosity(), transformation, colors.isUvLock(uvlock), spriteGetter, location);
+      bakePart(builder, context, part, colors.color, colors.luminosity(), transformation, colors.isUvLock(uvlock), spriteGetter, location);
     }
     return builder.build();
   }
 
   @Override
-  public BakedModel bake(IModelConfiguration owner, ModelBakery bakery, Function<Material,TextureAtlasSprite> spriteGetter, ModelState modelTransform, ItemOverrides overrides, ResourceLocation modelLocation) {
-    return bakeModel(owner, model.getElements(), colorData, modelTransform, overrides, spriteGetter, modelLocation);
+  public BakedModel bake(IGeometryBakingContext context, ModelBakery bakery,
+                         Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelState, ItemOverrides overrides, ResourceLocation modelLocation) {
+    return model.bake(context,bakery,spriteGetter,modelState,overrides,modelLocation);
   }
 
-  /** Bakes the model inside a dynamic model */
-  public BakedModel bakeDynamic(IModelConfiguration owner, ModelState transform) {
-    return bakeModel(owner, getElements(), colorData, transform, ItemOverrides.EMPTY, ForgeModelBakery.defaultTextureGetter(), BAKE_LOCATION);
+  public BakedModel bakeDynamic(IGeometryBakingContext owner, ModelState transform) {
+    return bakeModel(owner, model.getElements(), colorData, transform, ItemOverrides.EMPTY,Material::sprite,
+      BAKE_LOCATION);
+  }
+
+  @Override
+  public Collection<Material> getMaterials(IGeometryBakingContext context, Function<ResourceLocation, UnbakedModel> modelGetter, Set<Pair<String, String>> missingTextureErrors) {
+    return model.getMaterials(context,modelGetter,missingTextureErrors);
   }
 
   /**
@@ -194,20 +203,8 @@ public class ColoredBlockModel implements IModelGeometry<ColoredBlockModel> {
   public static ColoredBlockModel deserialize(JsonDeserializationContext context, JsonObject json) {
     SimpleBlockModel model = SimpleBlockModel.deserialize(context, json);
     List<ColorData> colorData = json.has("colors") ? JsonHelper.parseList(json, "colors", ColorData::fromJson) : Collections.emptyList();
-    return new ColoredBlockModel(model, colorData);
+    return new ColoredBlockModel(model,colorData);
   }
-
-  /** Loader logic */
-  private static class Loader implements IModelLoader<ColoredBlockModel> {
-    @Override
-    public void onResourceManagerReload(ResourceManager resourceManager) {}
-
-    @Override
-    public ColoredBlockModel read(JsonDeserializationContext deserializationContext, JsonObject modelContents) {
-      return deserialize(deserializationContext, modelContents);
-    }
-  }
-
 
   /* Face bakery */
 
@@ -216,6 +213,8 @@ public class ColoredBlockModel implements IModelGeometry<ColoredBlockModel> {
   public static BakedQuad bakeFace(BlockElement part, BlockElementFace face, TextureAtlasSprite sprite, Direction facing, ModelState transform, int color, int luminosity, ResourceLocation location) {
     return bakeFace(part, face, sprite, facing, transform.getRotation(), transform.isUvLocked(), color, luminosity, location);
   }
+
+
 
   /**
    * Extension of {@code BlockModel#bakeFace(BlockPart, BlockPartFace, TextureAtlasSprite, Direction, IModelTransform, ResourceLocation)} with color and luminosity arguments
